@@ -1,0 +1,330 @@
+if (!require("stringr")) {
+  install.packages("stringr")
+  library("stringr")
+}
+if (!require("dplyr")) {
+  install.packages("dplyr")
+  library("dplyr")
+}
+if (!require("ggplot2")) {
+  BiocManager::install("ggplot2")
+  library("ggplot2")
+}
+if (!require("WGCNA")) {
+  BiocManager::install("WGCNA")
+  library("WGCNA")
+}
+
+
+cor<-stats::cor
+cor <- WGCNA::cor
+
+
+getwd()
+
+expr <- read.csv("merge-CIRI2-count-Fjoin.csv", row.names = 1, header = TRUE, check.names = FALSE)
+
+
+
+
+
+datExpr <- as.data.frame(t(expr))
+
+gsg <- goodSamplesGenes(datExpr,verbose = 3)
+gsg$allOK
+
+datExpr <- datExpr[gsg$goodSamples,gsg$goodGenes]
+
+
+
+sampleTree <- hclust(dist(datExpr),method = "average")
+
+sizeGrWindow(12,9)
+par(cex = 0.6)
+par(mar = c(0,4,2,0))
+
+
+
+plot(sampleTree, main = "detect outliers", sub = "", xlab = "", cex.lab = 1.5, cex.axis = 1.5, cex.main = 2)
+h <- 1000
+abline(h = h,col = "red")
+
+#去除离群值
+clust <- cutreeStatic(sampleTree, cutHeight =h,minSize = 10)
+
+
+keepSamples <- (clust == 1)
+datExpr <- datExpr[keepSamples, ]
+sampleTree2 <- hclust(dist(datExpr),method = "average")
+plot(sampleTree2, main = " sample Tree", sub = "", xlab = "", cex.lab = 1.5, cex.axis = 1.5, cex.main = 2)
+
+datExpr[] <- lapply(datExpr, as.numeric)
+
+## 生成表型数据
+rownames(datExpr)
+
+group <- str_extract(rownames(datExpr), pattern = "[NPT]{1}")
+sample <- rownames(datExpr)
+trait <- data.frame(sample = sample, group = group)
+
+trait$NC <- trait$group == "N"
+trait$Tumor <- trait$group == "T"
+trait$paracancerous_tissue <- trait$group == "P"
+
+trait[trait == TRUE] <- 1
+trait[trait == FALSE] <- 0
+
+
+
+
+datTraits <- trait[,-1]
+datTraits <- as.data.frame(datTraits)
+rownames(datTraits) <- trait[, 1]
+datTraits <- datTraits[, -1]
+datTraits
+
+collectGarbage()
+## 转成颜色
+traitsColors <- numbers2colors(datTraits)
+
+plotDendroAndColors(sampleTree2, traitsColors, groupLabels = names(datTraits), main = "Sample dendrogram and trait heatmap")
+
+powers = c(c(1:10), seq(from = 12, to=20, by=2))
+
+
+sft <- pickSoftThreshold(datExpr, powerVector = powers, verbose = 5)
+
+# Plot the results:
+sizeGrWindow(9, 5)
+par(mfrow = c(1,2));
+cex1 = 0.9
+
+#Scale-free topology fit index as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+     main = paste("Scale independence"))
+text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     labels=powers,cex=cex1,col="red")
+# this line corresponds to using an R^2 cut-off of h
+abline(h=0.85,col="red")
+
+# Mean connectivity as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], sft$fitIndices[,5],
+     xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
+     main = paste("Mean connectivity"))
+
+text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
+
+
+## 构建网络 关联模块与表型
+
+
+cor <- WGCNA::cor
+power <- sft$powerEstimate
+
+net = blockwiseModules(datExpr, power = power,
+                       TOMType = "unsigned", minModuleSize = 30,
+                       reassignThreshold = 0, mergeCutHeight = 0.25,
+                       numericLabels = TRUE, pamRespectsDendro = FALSE,
+                       saveTOMs = FALSE,
+                       saveTOMFileBase = "CRC_HUMAN_TOM", 
+                       verbose = 3)
+
+
+table(net$colors)
+# open a graphics window
+sizeGrWindow(12, 9)
+# Convert labels to colors for plotting
+mergedColors = labels2colors(net$colors)
+# Plot the dendrogram and the module colors underneath
+plotDendroAndColors(net$dendrograms[[1]], mergedColors[net$blockGenes[[1]]],
+                    "Module colors",
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
+
+moduleLabels = net$colors
+moduleColors = labels2colors(net$colors)
+MEs = net$MEs;
+geneTree = net$dendrograms[[1]];
+## save(MEs, moduleLabels, moduleColors, geneTree, 
+##     file = "FemaleLiver-02-networkConstruction-auto.RData")
+
+
+
+# Define numbers of genes and samples
+nGenes = ncol(datExpr);
+nSamples = nrow(datExpr);
+# Recalculate MEs with color labels
+MEs0 = moduleEigengenes(datExpr, moduleColors)$eigengenes
+MEs = orderMEs(MEs0)
+moduleTraitCor = cor(MEs, datTraits, use = "p");
+moduleTraitPvalue = corPvalueStudent(moduleTraitCor, nSamples)
+
+sizeGrWindow(10,6)
+
+# Will display correlations and their p-values
+textMatrix =  paste(signif(moduleTraitCor, 2), "\n(",
+                    signif(moduleTraitPvalue, 1), ")", sep = "");
+
+dim(textMatrix) = dim(moduleTraitCor)
+par(mar = c(6, 8.5, 3, 3));
+# Display the correlation values within a heatmap plot
+labeledHeatmap(Matrix = moduleTraitCor,
+               xLabels = names(datTraits),
+               yLabels = names(MEs),
+               ySymbols = names(MEs),
+               colorLabels = FALSE,
+               colors = blueWhiteRed(50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,
+               cex.text =0.5,
+               cex.lab.y = 0.4,
+               zlim = c(-1,1),
+               main = paste("Module-trait relationships"))
+
+
+length(names(MEs))
+
+
+## 挑选相关模块基因
+# Define variable weight containing the weight column of datTrait
+Tumor = as.data.frame(datTraits$Tumor);
+names(Tumor) = "Tumor"
+# names (colors) of the modules
+modNames = substring(names(MEs), 3)
+
+geneModuleMembership = as.data.frame(cor(datExpr, MEs, use = "p"));
+
+MMPvalue = as.data.frame(corPvalueStudent(as.matrix(geneModuleMembership), nSamples));
+names(geneModuleMembership) = paste("MM", modNames, sep="");
+names(MMPvalue) = paste("p.MM", modNames, sep="");
+
+geneTraitSignificance = as.data.frame(cor(datExpr, Tumor, use = "p"));
+GSPvalue = as.data.frame(corPvalueStudent(as.matrix(geneTraitSignificance), nSamples));
+
+names(geneTraitSignificance) = paste("GS.", names(Tumor), sep="");
+names(GSPvalue) = paste("p.GS.", names(Tumor), sep="");
+
+
+## 筛选与CRC相关模块基因
+module = "turquoise"
+column = match(module, modNames);
+
+moduleGenes = moduleColors==module;
+
+
+sizeGrWindow(7, 7);
+par(mfrow = c(1,1));
+verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
+                   abs(geneTraitSignificance[moduleGenes, 1]),
+                   xlab = paste("Module Membership in", module, "module"),
+                   ylab = "Gene significance for CRC",
+                   main = paste("Module membership vs. gene significance\n"),
+                   cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = module)
+
+# Create the starting data frame
+geneInfo0 = data.frame(substanceBXH = names(datExpr),
+                       moduleColor = moduleColors,
+                       geneTraitSignificance,
+                       GSPvalue)
+# Order modules by their significance for BLM
+modOrder = order(-abs(cor(MEs, Tumor, use = "p")))
+
+# Add module membership information in the chosen order
+for (mod in 1:ncol(geneModuleMembership))
+{
+  oldNames = names(geneInfo0)
+  geneInfo0 = data.frame(geneInfo0, geneModuleMembership[, modOrder[mod]], 
+                         MMPvalue[, modOrder[mod]]);
+  
+  names(geneInfo0) = c(oldNames, paste("MM.", modNames[modOrder[mod]], sep=""),
+                       paste("p.MM.", modNames[modOrder[mod]], sep=""))
+}
+# Order the genes in the geneInfo variable first by module color, then by geneTraitSignificance
+geneOrder = order(geneInfo0$moduleColor, -abs(geneInfo0$GS.Tumor));
+geneInfo = geneInfo0[geneOrder, ]
+
+
+
+
+
+
+
+# Calculate topological overlap anew: this could be done more efficiently by saving the TOM
+# calculated during module detection, but let us do it again here.
+dissTOM = 1-TOMsimilarityFromExpr(datExpr, power = power);
+# Transform dissTOM with a power to make moderately strong connections more visible in the heatmap
+plotTOM = dissTOM^7;
+# Set diagonal to NA for a nicer plot
+diag(plotTOM) = NA;
+
+# Call the plot function
+# sizeGrWindow(100000,100000)
+# image <- TOMplot(plotTOM, geneTree, moduleColors, main = "Network heatmap plot, all genes")
+
+nSelect = 200
+set.seed(10);
+select = sample(nGenes, size = nSelect);
+# select <- nGenes
+selectTOM = dissTOM[select, select];
+selectTree = hclust(as.dist(selectTOM), method = "average")
+selectColors = moduleColors[select];
+sizeGrWindow(9,9)
+plotDiss = selectTOM^7;
+diag(plotDiss) = NA;
+TOMplot(plotDiss, selectTree, selectColors, main = "Network heatmap plot, selected genes")
+
+## Visualizing the network of eigengenes
+MEs = moduleEigengenes(datExpr, moduleColors)$eigengenes
+# Isolate weight from the clinical traits
+Tumor = as.data.frame(datTraits$Tumor);
+names(Tumor) = "Tumor"
+# Add the weight to existing module eigengenes
+MET = orderMEs(cbind(MEs, Tumor))
+
+# Plot the relationships among the eigengenes and the trait
+sizeGrWindow(15,15);
+par(cex = 0.9)
+
+plotEigengeneNetworks(MET, "", marDendro = c(0,4,1,2), marHeatmap = c(3,4,1,2), cex.lab = 0.8, xLabelsAngle
+                      = 90)
+# Plot the dendrogram
+sizeGrWindow(6,6);
+par(cex = 1.0)
+
+plotEigengeneNetworks(MET, "Eigengene dendrogram", marDendro = c(0,4,2,0),
+                      plotHeatmaps = FALSE)
+
+
+plotEigengeneNetworks(MET, "Eigengene adjacency heatmap", marHeatmap = c(3,4,2,2),
+                      plotDendrograms = FALSE, xLabelsAngle = 90)
+
+
+
+## Exporting to Cytoscape
+# Recalculate topological overlap if needed
+TOM = TOMsimilarityFromExpr(datExpr, power = power);
+
+# Select modules
+modules = c(module);
+# Select module probes
+probes = names(datExpr)
+
+inModule = is.finite(match(moduleColors, modules));
+modProbes = probes[inModule];
+modGenes = names(datExpr)[inModule];
+
+# Select the corresponding Topological Overlap
+modTOM = TOM[inModule, inModule];
+dimnames(modTOM) = list(modProbes, modProbes)
+
+# Export the network into edge and node list files Cytoscape can read
+cyt = exportNetworkToCytoscape(modTOM,
+                               edgeFile = paste("CytoscapeInput-edges-", paste(modules, collapse="-"), "2.txt", sep=""),
+                               nodeFile = paste("CytoscapeInput-nodes-", paste(modules, collapse="-"), "2.txt", sep=""),
+                               weighted = TRUE,
+                               threshold = 0.02,
+                               nodeNames = modProbes,
+                               altNodeNames = modGenes,
+                               nodeAttr = moduleColors[inModule])
+

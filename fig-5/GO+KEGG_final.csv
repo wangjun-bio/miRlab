@@ -1,0 +1,17 @@
+pasy,pvalue,log10,group
+regulation of calcium ion import,5.66E-05,4.25,GO
+calcium ion import,6.86E-05,4.16,GO
+feeding behavior,9.27E-05,4.03,GO
+regulation of DNA-directed DNA polymerase activity,0.000117898,3.93,GO
+positive regulation of DNA-directed DNA polymerase activity,0.000117898,3.93,GO
+regulation of hormone secretion,0.000134948,3.87,GO
+regulation of catecholamine secretion,0.000182919,3.74,GO
+catecholamine secretion,0.00020432,3.69,GO
+regulation of peptide hormone secretion,0.000415133,3.38,GO
+growth factor activity,6.19E-05,4.21,GO
+Chemokine signaling pathway,0.008429899,2.07,KEGG
+Cytokine-cytokine receptor interaction,0.011713247,1.93,KEGG
+PPAR signaling pathway,0.02243098,1.65,KEGG
+PI3K-Akt signaling pathway,0.022677363,1.64,KEGG
+Neuroactive ligand-receptor interaction,0.026762793,1.57,KEGG
+Ras signaling pathway,0.031083791,1.51,KEGG
