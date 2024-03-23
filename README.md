@@ -2,7 +2,7 @@
 Scripts in this folder are collection of bioinformatics analysis piplines to process cfMeDIP-seq data. These piplines take paired-end FASTQ files as input and generate output files which can be used for downstream analysis and the cfDNA fragment size calculation. 
 
 # upstream_pipline
-Scripts in this part could be used to generate bam file from raw fastq file.
+Scripts in this part could be used to generate bam file from raw fastq file.<br>
 raw fastq files and script "cfMeDIP-seq_upstream.sh"， "barcode.3.fasta", "dedup.py","split_barcode.py","unique_mapped_filter.py" shoul be placed in the same folder. Runing the cfMeDIP-seq_upstream script will result the bam file for downstream analysis.
 
 test_R1.fastq and test_R2.fastq could be used as demo data. 
