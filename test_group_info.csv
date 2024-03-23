@@ -1,0 +1,2 @@
+Sample,sample_ip,sample_input,group,bam_file_ip,bam_file_input,after_correction_Ip,after_correction_Input
+SZ9,SZ9_IP,SZ9_Input,Breast,SZ9_IP_uniqmap_dedup_sorted.bam,SZ9_INPUT_uniqmap_dedup_sorted.bam,SZ9_Ip_uniqmap_dedup_sorted.bam,SZ9_Input_uniqmap_dedup_sorted.bam
