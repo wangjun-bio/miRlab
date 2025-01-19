@@ -475,59 +475,6 @@ p3
 ggsave(plot = p3,filename = './新建文件夹/total.png',width=14,height=8,dpi = 600)
 ggsave(plot = p3,filename = './新建文件夹/total.pdf',width=14,height=8)
 
-###############ICI免疫治疗反应评分##########################
-library(reshape2)
-library(ggpubr)
-tcia = read.table('./TCIA-ClinicalData.tsv',header = T,sep = '\t',check.names = F,row.names = 1)
-tcia = tcia[,c('ips_ctla4_neg_pd1_neg','ips_ctla4_neg_pd1_pos','ips_ctla4_pos_pd1_neg','ips_ctla4_pos_pd1_pos')]
-
-#rownames(Group) = gsub("(.*?)\\-(.*?)-(.*?)\\-(.*?)","\\1\\-\\2\\-\\3",rownames(Group))
-Group <- read.csv('./group_list.csv',row.names = 1)
-rownames(Group) = gsub('-01A','',rownames(Group))
-overlap <- intersect(rownames(Group),rownames(tcia))
-tcia <- tcia[overlap,]
-Group$id = rownames(Group)
-Group <- Group[overlap,]
-tcia$Group = Group$condition
-tcia$Group = factor(tcia$Group,levels = c('Low','High'))
-tcia = na.omit(tcia)
-
-
-
-for (i in 1:4) {
-  a <- tcia
-  colnames(a)[i] <- 'nn'
-  col <- colnames(tcia)[i]
-  p <- ggboxplot(a,           
-                 x="Group",           
-                 y="nn",          
-                 xlab = "",         
-                 ylab = col,          
-                 color = "Group",          
-                 order=c("High","Low"),         
-                 bxp.errorbar=T,          
-                 bxp.errorbar.width = 0.1,          
-                 palette = "lancet",           
-                 add = "jitter",           
-                 lwd=0.7,           
-                 fatten=2,)+  
-    scale_color_manual(values = c("#e60033", "#38a1db"))+  
-    geom_signif(comparisons = list(c("High","Low")),              
-                map_signif_level = T,               
-                test = "wilcox.test",               
-                y_position = c(11),              
-                tip_length = c(c(0.05,0.05)),              
-                size=0.8,color="black")+  
-    theme_bw()
-  theme(legend.position = "top",        
-        axis.title.x =element_text(size=16,face = 'bold.italic'),        
-        axis.title.y=element_text(size=16,face = 'bold.italic'),        
-        axis.text.x=element_text(size=16,face = 'bold'),        
-        axis.text.y=element_text(size=16,face = 'bold'),
-        plot.margin=unit(c(2,2,2,2),'cm'))
-  ggsave(plot = p,filename = paste(col,'.pdf'),height = 9,width = 7)
-  ggsave(plot = p,filename = paste(col,'.png'),height = 7,width = 7,dpi = 600)
-}
 
 
 
