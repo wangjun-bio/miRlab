@@ -1,10 +1,9 @@
-
+################
 data <- read.csv('../fitermRNA.csv',row.names = 1,check.names = F)
-group <- read.csv('../group_list.csv',row.names = 1)
-group$id <- rownames(group)
-colnames(group) <- c('Group','Tumor_Sample_Barcode')
-#group$Tumor_Sample_Barcode <- gsub('-01A',' ',group$Tumor_Sample_Barcode)
-#group$Tumor_Sample_Barcode <- gsub('-11A',' ',group$Tumor_Sample_Barcode)
+group <- read.csv('./new_var/TCGA-生存分析分组DLST+ EGFL7 + DOCK4(1).csv',row.names = 1)
+library(tidyverse)
+group$Tumor_Sample_Barcode <- rownames(group)
+group <- group %>% select(Tumor_Sample_Barcode,Group)
 
 library(tidyverse)
 library(maftools)
@@ -21,26 +20,14 @@ maf.list <- lapply(mafFilePath, fread,
 maf.merge <- do.call(rbind,maf.list)
 maf.merge$Tumor_Sample_Barcode <- gsub('01A.*','01A',maf.merge$Tumor_Sample_Barcode)
 maf <- read.maf(maf = maf.merge,clinicalData = group)
-
-#Shows sample summry.
-getSampleSummary(maf)
-#Shows gene summary.
-getGeneSummary(maf)
-#Shows all fields in MAF
-getFields(maf)
-#shows clinical data associated with samples
-getClinicalData(maf)
-
-#提取所需要的分组
-maf1 = subsetMaf(maf = maf,tsb = group$Tumor_Sample_Barcode,mafObj = F)
-maf1_list = read.maf(maf1,clinicalData = group)
-getClinicalData(maf1_list)
-output <- file.path('D:/乳腺癌/var/')
+head(maf@clinical.data)
+output <- file.path('D:/乳腺癌/var/new_var')
 
 png(paste(output,'summary.png',sep = '/'),width = 10*300,height = 10*300,res = 300)
 pdf(paste(output,'summary.pdf',sep = '/'),width = 10,height = 10)
-plotmafSummary(maf = maf1_list, rmOutlier = TRUE, addStat = 'median', dashboard = TRUE, titvRaw = FALSE)
+plotmafSummary(maf = maf, rmOutlier = TRUE, addStat = 'median', dashboard = TRUE, titvRaw = FALSE)
 dev.off()
+
 #oncoplot for top ten mutated genes.
 vc_cols = RColorBrewer::brewer.pal(n = 8, name = 'Paired')
 names(vc_cols) = c(
@@ -53,11 +40,9 @@ names(vc_cols) = c(
   'Splice_Site',
   'In_Frame_Del'
 )
-
-
-png(paste(output,'oncoplot.png',sep = '/'),width = 10*300,height = 10*300,res = 300)
-pdf(paste(output,'oncoplot.pdf',sep = '/'),width = 10,height = 10)
-oncoplot(maf = maf1_list,
+png(paste(output,'oncoplot1.png',sep = '/'),width = 10*300,height = 10*300,res = 300)
+pdf(paste(output,'oncoplot1.pdf',sep = '/'),width = 10,height = 10)
+oncoplot(maf = maf,
          clinicalFeatures = c("Group"),
          top = 10,
          colors = vc_cols,
@@ -65,49 +50,167 @@ oncoplot(maf = maf1_list,
 )
 dev.off()
 
+group1_samples <- group[group$Group == "High_group",]
+group1_samples <- group1_samples[maf@clinical.data$Tumor_Sample_Barcode %in% group1_samples$Tumor_Sample_Barcode, ]$Tumor_Sample_Barcode
+group2_samples <- group[group$Group == "Low_group",]
+group2_samples <- group2_samples[maf@clinical.data$Tumor_Sample_Barcode %in% group2_samples$Tumor_Sample_Barcode, ]$Tumor_Sample_Barcode
+getFields(maf)
+luad.high <- subsetMaf(maf = maf, tsb = group1_samples, fields = c('Missense_Mutation','Frame_Shift_Del',
+                                                                   'In_Frame_Del','Frame_Shift_Ins','Nonsense_Mutation',
+                                                                   'Nonstop_Mutation','Splice_Site','Translation_Start_Site','HGVSp_Short',
+                                                                   'Protein_position','t_ref_count','t_alt_count'))
+luad.low <- subsetMaf(maf = maf, tsb = group2_samples, fields = c('Missense_Mutation','Frame_Shift_Del',
+                                                                  'In_Frame_Del','Frame_Shift_Ins','Nonsense_Mutation',
+                                                                  'Nonstop_Mutation','Splice_Site','Translation_Start_Site','HGVSp_Short',
+                                                                  'Protein_position','t_ref_count','t_alt_count'))
+maf_subset <- subset(maf@data, Tumor_Sample_Barcode %in% group1_samples)
+table(maf_subset$Variant_Classification)
+plotVaf(maf = maf_group1,top = 10)
+plotVaf(maf = maf_group2,top = 10)
 
-laml.titv = titv(maf = maf1_list, plot = FALSE, useSyn = TRUE)
-#plot titv summary
-png(paste(output,'titv.png',sep = '/'),width = 10*300,height = 10*300,res = 300)
-pdf(paste(output,'titv.pdf',sep = '/'),width = 10,height = 10)
-plotTiTv(res = laml.titv)
-dev.off()
+###手动计算VAF VAF = t_alt_count / (t_ref_count + t_alt_count)
+if ("t_ref_count" %in% colnames(luad.high@data) & "t_alt_count" %in% colnames(luad.high@data)) {
+  luad.high@data$tumor_vaf <- with(luad.high@data, t_alt_count / (t_ref_count + t_alt_count))
+}
 
-png(paste(output,'PIK3CA.png',sep = '/'),width = 8*300,height = 8*300,res = 300)
-pdf(paste(output,'PIK3CA.pdf',sep = '/'),width = 8,height = 8)
-lollipopPlot(
-  maf = maf1_list,
-  gene = 'PIK3CA',
-  AACol = 'HGVSp_Short',
-  showMutationRate = T
+if ("t_ref_count" %in% colnames(luad.low@data) & "t_alt_count" %in% colnames(luad.low@data)) {
+  luad.low@data$tumor_vaf <- with(luad.low@data, t_alt_count / (t_ref_count + t_alt_count))
+}
+
+# 提取高 VAF 组的 VAF 数据
+vaf_data_high <- data.frame(
+  Gene = luad.high@data$Hugo_Symbol,
+  VAF = luad.high@data$tumor_vaf,
+  Group = rep("High", nrow(luad.high@data))
 )
-dev.off()
 
-plotProtein(gene = "TP53", refSeqID = "NM_001126113")
-
-my_data = data.frame(pos = sample.int(912, 15, replace = TRUE), count = sample.int(30, 15, replace = TRUE))
-head(my_data)
-
-png(paste(output,'TP53.png',sep = '/'),width = 8*300,height = 8*300,res = 300)
-pdf(paste(output,'TP53.pdf',sep = '/'),width = 8,height = 8)
-lollipopPlot(
-  maf = maf1_list,
-  gene = 'TP53',
-  AACol = 'HGVSp_Short',
-  showMutationRate = T,
-  refSeqID = 'NM_000546'
+# 提取低 VAF 组的 VAF 数据
+vaf_data_low <- data.frame(
+  Gene = luad.low@data$Hugo_Symbol,
+  VAF = luad.low@data$tumor_vaf,
+  Group = rep("Low", nrow(luad.low@data))
 )
+
+# 合并数据
+vaf_data_combined <- rbind(vaf_data_high, vaf_data_low)
+
+top10_gene <- c('TP53','PIK3CA','CDH1','MAP3K1','GATA3','KMT2C','MUC16','TTN','HMCN1','FLG')
+
+# 根据选定的基因筛选数据
+filtered_vaf_data <- vaf_data_combined[vaf_data_combined$Gene %in% top10_gene,]
+
+# 绘制 VAF 分布图，展示前十的基因
+library(ggpubr)
+library(ggplot2)
+png(paste(output,'VAF.png',sep = '/'),width = 8*300,height = 6*300,res = 300)
+pdf(paste(output,'VAF.pdf',sep = '/'),width = 8,height = 6)
+ggplot(filtered_vaf_data, aes(x = Gene, y = VAF, fill = Group)) +
+  geom_boxplot(outlier.shape = NA) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major = element_blank(),  # 去除主要网格线
+    panel.grid.minor = element_blank(),  # 去除次要网格线
+    axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1,size = 20), # 旋转x轴标签45度
+    axis.text = element_text(size = 20),
+    plot.margin = margin(0.5, 0.5, 0.5, 0.5) # 调整图表边距
+  ) +
+  labs(title = "", y = "Tumor VAF", x = "") +
+  scale_fill_manual(values = c("High" = "#BF1D2D","Low" = "#293890")) +
+  stat_compare_means(aes(label = ..p.signif..), label = "p.signif", label.x = 1) +
+  theme_bw() 
 dev.off()
 
-png(paste(output,'VAF.png',sep = '/'),width = 10*300,height = 10*300,res = 300)
-pdf(paste(output,'VAF.pdf',sep = '/'),width = 10,height = 10)
-plotVaf(maf = maf1_list, vafCol = NULL)
+library(rstatix)
+
+stat_results <- filtered_vaf_data %>%
+  group_by(Gene) %>%
+  t_test(VAF ~ Group) %>%
+  adjust_pvalue(method = "BH") %>%  # 可选：调整 p 值
+  add_significance()
+
+# 查看结果
+print(stat_results)
+write.csv(stat_results,file = './new_var/tumor_vaf_stat.csv')
+
+# 计算 Ti/Tv 比率
+group1_titv <- titv(maf = luad.high, plot = FALSE)
+group2_titv <- titv(maf = luad.low, plot = FALSE)
+
+# 假设有多个样本的 Ti/Tv 比率数据
+group1_fraction <- group1_titv$TiTv.fractions %>% mutate(Group = 'High')
+group2_fraction <- group2_titv$TiTv.fractions %>% mutate(Group = 'Low')
+
+
+#### C/T
+group1_ct <- group1_titv$fraction.contribution %>% mutate(Group = 'High')
+group2_ct <- group2_titv$fraction.contribution %>% mutate(Group = 'Low')
+
+
+# 合并数据
+combined_titv_data <- rbind(group1_fraction, group2_fraction)
+combined_ct_data <- rbind(group1_ct,group2_ct)
+
+# 将数据转换为长格式
+titv_long <- tidyr::pivot_longer(combined_ct_data, cols = c('C>A', 'C>G','C>T','T>C','T>A','T>G'), names_to = "Mutation_Type", values_to = "Value")
+
+# 绘制箱线图
+png(paste(output,'mutation.png',sep = '/'),width = 8*300,height = 6*300,res = 300)
+pdf(paste(output,'mutation.pdf',sep = '/'),width = 8,height = 6)
+p <- ggplot(titv_long, aes(x = Mutation_Type, y = Value, fill = Group)) +
+  geom_boxplot(outlier.shape = NA) + # 不显示异常值
+  scale_fill_manual(values = c("High" = "#BF1D2D", "Low" = "#293890")) + # 根据Group设置颜色
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(y = "% Mutations", x = "") +
+  theme(axis.text.x = element_text(size = 14)) + # 旋转x轴标签45度
+  stat_compare_means(aes(label = ..p.signif..), label = "p.signif", method = "t.test") + # 添加显著性标记
+theme_bw() 
+print(p)
 dev.off()
 
-maf.sig = oncodrive(maf = maf1_list, AACol = 'HGVSp_Short', minMut = 5, pvalMethod = 'zscore')
-plotOncodrive(res = maf.sig, fdrCutOff = 0.1, useFraction = TRUE, labelSize = 0.5)
+library(rstatix)
+
+stat_results <- titv_long %>%
+  group_by(Mutation_Type) %>%
+  t_test(Value ~ Group) %>%
+  adjust_pvalue(method = "BH") %>%  # 可选：调整 p 值
+  add_significance()
+
+# 查看结果
+print(stat_results)
+
+# 保存为 CSV
+write.csv(stat_results, "./new_var/stat_test_TITV_by_Mutation_Type.csv", row.names = FALSE)
 
 
+pdf(paste(output,"genecast.vs.know.maf.diff.coBarplot.pdf",sep = '/'),width=5.5,height=5.5)
+coBarplot(m1 = luad.high, m2 = luad.low, m1Name = 'High', m2Name = 'Low',colors = vc_cols)
+dev.off()
+
+luad.sig <- oncodrive(maf=maf, minMut=5, AACol="HGVSp_Short", pvalMethod="zscore")
+
+# 使用plotOncodrive函数绘制散点图
+plotOncodrive(res = luad.sig, fdrCutOff = 0.1, useFraction = TRUE)
+vc_cols = RColorBrewer::brewer.pal(n = 8, name = 'Paired')
+names(vc_cols) = c(
+  'Frame_Shift_Del',
+  'Missense_Mutation',
+  'Nonsense_Mutation',
+  'Multi_Hit',
+  'Frame_Shift_Ins',
+  'In_Frame_Ins',
+  'Splice_Site',
+  'In_Frame_Del'
+)
+genes <- c('TP53','PIK3CA','CDH1','MAP3K1','GATA3','KMT2C','MUC16','TTN','HMCN1','FLG')
+pdf(paste(output,"genecast.vs.know.maf.diff.coOncoplot.pdf",sep = '/'),width=7,height=5.5)
+coOncoplot(m1=luad.high, m2=luad.low, m1Name="High", m2Name="Low", genes=genes,colors = vc_cols)
+dev.off()
+
+pdf(paste(output,"genecast.vs.know.maf.diff.collipoplot.pdf",sep = '/'),width=7,height=5.5)
+lollipopPlot2(m1=luad.high, m2=luad.low,m1_name="High", m2_name="Low", gene="PIK3CA",AACol1 = "HGVSp_Short", AACol2 = "HGVSp_Short")
+dev.off()
 
 ##########TMB###############
 
