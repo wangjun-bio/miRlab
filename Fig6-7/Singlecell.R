@@ -163,6 +163,33 @@ p<-DotPlot(scRNA_harmony,
            features=split(top5$gene,top5$cluster),
            cols=c("#ffffff","firebrick3"))
 p
+
+#将数据存储在dotplot_data中
+library(tidyr)
+library(dplyr)
+library(pheatmap)
+dotplot_data<-p$data
+heatmap_data<-dotplot_data%>%
+  select(features.plot,id,avg.exp.scaled)%>%
+  pivot_wider(names_from=features.plot,values_from=avg.exp.scaled)
+# 将细胞分群ID列设置为行名
+library(tidyverse)
+heatmap_data=column_to_rownames(heatmap_data,var="id")
+pheatmap(heatmap_data,
+         cluster_rows=F,
+         cluster_cols=F,
+         color=colorRampPalette(c("#AECDD7","#c7e0ed","#6a0624"))(100),
+         border_color = 'white')
+pdf(file = './var/new_var/new_singlecell/top5gene.pdf',height = 6,width = 8)
+pheatmap(heatmap_data,
+         cellwidth=10,
+         cellheight=20,
+         cluster_rows=F,
+         cluster_cols=F,
+         color=colorRampPalette(c("#AECDD7","#c7e0ed","#C85D4D"))(100),
+         border_color = 'white')
+dev.off()
+
 #重新整理细胞亚群的排列，倒序排列
 p$data$feature.groups2<-factor(p$data$feature.groups,
                                levels = c('T cells','CAFs','B cells','TAM','Epithelial','T/NK cells'))
@@ -275,17 +302,23 @@ ggsave(plot = p3,filename = './singlecell2/细胞含量.png',height = 6,width = 
 
 ##########
 library(Nebulosa)
+gene <- c('DLST','EGFL7','DOCK4')
 gene <- c('DLST','FBXO31')
 p = plot_density(scRNA_harmony,gene)
 p
-p = plot_density(scRNA_harmony,'FBXO31')
+p = plot_density(scRNA_harmony,'DLST')
+ggsave(plot = p,filename = './var/new_var/new_singlecell/DLST.pdf',height = 6,width = 8)
+p = plot_density(scRNA_harmony,'EGFL7')
+ggsave(plot = p,filename = './var/new_var/new_singlecell/EGFL7.pdf',height = 6,width = 8)
+p = plot_density(scRNA_harmony,'DOCK4')
+ggsave(plot = p,filename = './var/new_var/new_singlecell/DOCK4.pdf',height = 6,width = 8)
 library(patchwork)
 p/umap2
 
 ggsave(plot = p,filename = './singlecell/gene.pdf',height = 10,width = 12)
 ggsave(plot = p,filename = './singlecell/gene.png',height = 10,width = 12,dpi = 300)
 
-###############
+
 library(reshape2)
 library(dplyr)
 library(tibble)
@@ -305,45 +338,131 @@ pb1 <- ggplot(Ave_df_melt,aes(x = Gene,y = Expression)) +
   geom_line() + #添加折线
   geom_segment(aes(x = Gene,xend = Gene,y = 0,yend = Expression),color = 'lightgrey',size = 1.5) + ##添加线段
   geom_point(size = 3,aes(color = Gene)) + 
-  scale_color_manual(values = c('blue','red')) +
+  scale_color_manual(values = c('#BB8ABE','#EA9C9D','#B9E5FA')) +
   theme_bw() + 
   theme(panel.grid = element_blank()) + ###移除面板网络
   labs(x = '',y = 'Ave_Exp')
-
+pb1
 pb1 <- pb1 + facet_wrap(~Celltype, ncol = length(unique(Ave_df_melt$Celltype)))
-
+pb1
 # 设置分面标签的字体大小和背景颜色
-pb1 <- pb1 + theme(
-  panel.labs.font = list(size = 12), 
-  panel.labs.background = element_rect(fill = "orange")
-)
+#pb1 <- pb1 + scale_y_continuous(position = 'right')+ #更改y轴位置
+#  theme(axis.text.y = element_text(size = 12,colour = 'black')) +
+#  theme(axis.text.x = element_blank()) +
+ # theme(axis.title.y = element_text(size = 12,colour = 'black')) +
+#  theme(axis.title.x = element_blank()) +
+#  theme(legend.position = 'right',      #设置图例
+#        panel.border = element_blank(), #######移除面板
+ #       axis.ticks.x = element_line(colour = NA)) ###移除x轴刻度线
+pb1
+ggsave(plot = pb1,filename = './var/new_var/new_singlecell/Ave_exp.pdf',height = 4,width = 8)
+ggsave(plot = pb1,filename = './singlecell2/DLST_FBXO31.png',height = 9,width = 11,dpi = 600)
 
-pb1 <- pb1 + scale_y_continuous(position = 'right')+ #更改y轴位置
-  theme(axis.text.y = element_text(size = 12,colour = 'black')) +
-  theme(axis.text.x = element_blank()) +
-  theme(axis.title.y = element_text(size = 12,colour = 'black')) +
-  theme(axis.title.x = element_blank()) +
-  theme(legend.position = 'right',      #设置图例
-        panel.border = element_blank(), #######移除面板
-        axis.ticks.x = element_line(colour = NA)) ###移除x轴刻度线
-p <- p/pb1
-ggsave(plot = p,filename = './singlecell2/DLST_FBXO31.pdf',height = 9,width = 11)
-ggsave(plot = p,filename = './singlecell2/DLST_FBXO31.png',height = 9,width = 11,dpi = 600)
+levels(Idents(scRNA_harmony))
+scRNA <- subset(scRNA_harmony,idents = c('T/NK cells','T cells','Epithelial','TAM','B cells','CAFs'))
+obj_markers <- FetchData(scRNA,vars = gene,layer = 'data')
+#colmean <- colMeans(obj_markers)
+obj_markers <- obj_markers %>%
+  rowwise() %>%
+  mutate(Group = if_else(sum(c_across(everything()) > 0) > 0, 'High', 'Low'))
+table(obj_markers$Group)
+scRNA <- AddMetaData(scRNA,metadata = obj_markers)
+Idents(scRNA) <- scRNA@meta.data$Group
+table(Idents(scRNA))
+DEG_sc <- FindMarkers(scRNA,ident.1 = 'High',ident.2 = 'Low',
+                      verbose = F,
+                      min.pct = 0.1,
+                      test.use = 'wilcox')
+write.csv(DEG_sc,file = './singlecell2/DEG_sc.csv',row.names = T)
+DEG_sc <- read.csv('./var/new_var/new_singlecell/DEG_sc.csv',row.names = 1)
+log2FC <- 1
+padj <- 0.05
+DEG_sc1 <- DEG_sc %>% 
+  mutate(threshold = case_when(
+    avg_log2FC > log2FC & p_val_adj < padj ~ 'up',
+    avg_log2FC < -log2FC & p_val_adj < padj ~ 'down',
+    TRUE ~ 'ns'
+  ))
+table(DEG_sc1$threshold)
+DEG_sc1$symbol <- rownames(DEG_sc1)
+DEG_sc1 <- DEG_sc1[-c(1,2,3),]
+write.csv(DEG_sc1,file = './var/new_var/new_singlecell/deg_sc.csv')
+#DEG_sc1 <- DEG_sc1 %>% filter(DEG_sc1$symbol != 'IGLC3')
+DEG_sc1 <- DEG_sc1 %>% filter(p_val != 1)
+library(ggplot2)
+library(ggrepel)
+pdf(file = './singlecell2/scvolcano.pdf',height = 6,width = 9)
+ggplot(DEG_sc1, aes(x = avg_log2FC, y = -log10(p_val), colour=threshold)) +
+  geom_point(alpha=1, size=4.5) +
+  scale_color_manual(values=c("#B9E5FA", "#d2dae2","#EA9C9D"))+
+  # 辅助线
+  geom_vline(xintercept=c(-0.585,0.585),lty=4,col="grey",lwd=0.8) +
+  geom_hline(yintercept = -log10(padj),
+             lty=4,col="grey",lwd=0.8) +
+  # 坐标轴
+  labs(x="",
+       y="")+
+  theme_bw()+
+  ggtitle("")+
+  # 图例
+  theme(plot.title = element_text(hjust = 0.5), 
+        legend.position="right", 
+        legend.title = element_blank()
+  )
+dev.off()
+Symbol <- DEG_sc %>% filter(threshold != 'ns') %>% rownames()
 
-#saveRDS(scRNA_harmony,'./singlecell2/scRNA_harmony.rds')
-#saveRDS(scRNA,'./singlecell2/scRNA_亚群.rds')
-#a <- readRDS('./singlecell2/scRNA_harmony.rds')
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(enrichplot)
+library(tidyverse)
+#library(ggstatsplot)
+organism = 'hsa' 
+OrgDb = 'org.Hs.eg.db'
+need_DEG <- DEG_sc1
+need_DEG$SYMBOL <- rownames(need_DEG)
+need_DEG <- need_DEG[,c(2,8)] 
+df <- bitr(rownames(need_DEG), 
+           fromType = "SYMBOL",
+           toType =  "ENTREZID",
+           OrgDb = OrgDb)
+need_DEG <- merge(need_DEG, df, by='SYMBOL')
+geneList <- need_DEG$avg_log2FC
+names(geneList) <- need_DEG$ENTREZID
+geneList <- sort(geneList, decreasing = T)   #从大到小排序
+KEGG_kk_entrez <- gseKEGG(geneList = geneList,
+                          organism = organism,
+                          pvalueCutoff = 1,
+                          minGSSize = 5,
+                          maxGSSize = 500)
+KEGG_kk <- DOSE::setReadable(KEGG_kk_entrez, 
+                             OrgDb=OrgDb,
+                             keyType='ENTREZID')
+gsea_result <- KEGG_kk@result
+gsea_result = gsea_result %>% arrange(desc(setSize))
+write.csv(gsea_result,file = './var/new_var/new_singlecell/gsea_result_singlecell.csv')
+gsea_result <- gsea_result %>% filter(p.adjust < 0.05)
+dotplot(KEGG_kk)+scale_color_continuous_c4a_seq('rd_pu') + mytheme
+mytheme<- theme(axis.title = element_text(size = 13),
+                 axis.text = element_text(size = 11),
+                 legend.title = element_text(size = 13),
+                 legend.text = element_text(size = 11),
+                 plot.margin = margin(t = 5.5, r = 10, l = 5.5, b = 5.5))
+
+pdf(file = './var/new_var/new_singlecell/scgseakegg.pdf',height = 10,width = 6)
+dotplot(KEGG_kk)+scale_y_discrete(labels=function(x) stringr::str_wrap(x, width=60))
+dev.off()
+
 ###########T细胞亚群注释
-library(seruat)
-levels(Idents(a)) #打出来细胞类型供复制
-scRNA = subset(a,idents = c("T cells",'T/NK cells')) #要修改的
+levels(Idents(scRNA_harmony)) #打出来细胞类型供复制
+scRNA = subset(scRNA_harmony,idents = c('CAFs')) #要修改的
 table(Idents(scRNA))
 all.gene <- rownames(scRNA)
 scRNA = NormalizeData(scRNA,normalization.method="LogNormalize",scale.factor=10000) %>%
   FindVariableFeatures(selection.method = "vst",nfeatures=2000) %>% ScaleData(features = all.gene) %>%
   RunPCA(verbose = T,npcs = 30)
 ElbowPlot(scRNA)
-scRNA <- FindNeighbors(scRNA,dims = 1:15) %>% FindClusters(resolution = 0.1)
+scRNA <- FindNeighbors(scRNA,dims = 1:10) %>% FindClusters(resolution = 0.1)
 scRNA <- RunUMAP(scRNA,dims = 1:15)
 mycolors<-c('#E64A35','#4DBBD4','#01A187','#3C5588','#F29F80',
              '#8491B6','#91D0C1','#7F5F48','#AF9E85','#4F4FFF','#CE3D33',
@@ -359,6 +478,43 @@ library(ReactomeGSA)
 library(ggplot2)
 #library(singleseqgset)
 library(devtools)
+levels(Idents(scRNA))
+Idents(scRNA) <- 'seurat_clusters'
+scRNA<-JoinLayers(scRNA)
+brac.markers<-FindAllMarkers(scRNA,only.pos=T,min.pct=0.25,logfc.threshold=0.25,verbose=FALSE)
+top5=brac.markers%>%group_by(cluster)%>%top_n(n=10,wt=avg_log2FC)
+g = unique(top5$gene)
+p<-DotPlot(scRNA,
+           features=split(top5$gene,top5$cluster),
+           cols=c("#ffffff","firebrick3"))
+p
+write.csv(top5,file = './var/new_var/new_singlecell/top5CAFs.csv')
+#将数据存储在dotplot_data中
+library(tidyr)
+library(dplyr)
+library(pheatmap)
+dotplot_data<-p$data
+heatmap_data<-dotplot_data%>%
+  select(features.plot,id,avg.exp.scaled)%>%
+  pivot_wider(names_from=features.plot,values_from=avg.exp.scaled)
+# 将细胞分群ID列设置为行名
+library(tidyverse)
+heatmap_data=column_to_rownames(heatmap_data,var="id")
+pheatmap(heatmap_data,
+         cluster_rows=F,
+         cluster_cols=F,
+         color=colorRampPalette(c("#AECDD7","#c7e0ed","#6a0624"))(100),
+         border_color = 'white')
+pdf(file = './var/new_var/new_singlecell/CAFsMarkers.pdf',height = 6,width = 8)
+pheatmap(heatmap_data,
+         cellwidth=10,
+         cellheight=20,
+         cluster_rows=F,
+         cluster_cols=F,
+         color=colorRampPalette(c("#AECDD7","#c7e0ed","#C85D4D"))(100),
+         border_color = 'white')
+dev.off()
+
 
 ##############
 markers <- c(
@@ -391,14 +547,52 @@ source("./custom_seurat_functions.R")
 library(data.table)
 library(stringr)
 writeLines(paste0(0:5,','))
-celltype = read.table('./singlecell2/celltype2.txt',sep = ',')
+celltype = read.table('./var/new_var/new_singlecell/celltype2.txt',sep = ',')
 celltype
 
 #重新规定
 scRNA$celltype <- plyr::mapvalues(scRNA$seurat_clusters,
-                                          from = 0:5,
+                                          from = 0:4,
                                           to = celltype$V2
 )
+umap = scRNA@reductions$umap@cell.embeddings %>%    #坐标信息
+  as.data.frame() %>% 
+  cbind(celltype = scRNA@meta.data$celltype) # 注释后的cell_type信息
+head(umap)
+#计算每个细胞类型的median 坐标位置，留作在图上加标签
+cell_type_med <- umap %>%
+  group_by(celltype) %>%
+  summarise(
+    umap_1 = median(umap_1),
+    umap_2 = median(umap_2)
+  )
+p <- ggplot(umap,aes(x= umap_1 , y = umap_2 ,color = celltype)) +  
+  geom_point(size = 1 , alpha =1 )  + 
+  scale_color_manual(values = allcolour)
+p1 <- p  +
+  theme(
+    legend.title = element_blank(), #去掉legend.title 
+    legend.key=element_rect(fill='white'), #
+    legend.text = element_text(size=20), #设置legend标签的大小
+    legend.key.size=unit(1,'cm') ) +  # 设置legend标签之间的大小
+  guides(color = guide_legend(override.aes = list(size=5)))  + #设置legend中 点的大小 
+  #缩放坐标轴
+  #添加圈圈
+  #ggunchull::stat_unchull(alpha = 0.1, size = 0.5,lty = 2)  +
+  #添加注释 repel防止标签重叠，把注释加到图片的点上去
+  ggrepel:: geom_label_repel(aes(label=celltype), fontface="bold",data = cell_type_med,
+                             point.padding=unit(0.3, "lines")) +
+  # #去掉legend
+  ggrepel::geom_label_repel(aes(label=celltype), fontface="bold",data = cell_type_med,
+                            point.padding=unit(0.5, "lines")) +
+  theme(legend.position = "none") +
+  #去掉网格
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(face = 2,hjust = 0.03))
+p1
+ggsave(plot = p1,filename = './var/new_var/new_singlecell/CAFs.pdf',height = 6,width = 8)
+
+
 
 umap2 <- DimPlot(scRNA, reduction = "umap",group.by = 'group',
                  label = T,label.box = T,label.size = 4,repel = T) + theme_bw() +
@@ -479,7 +673,7 @@ ordering_gene = row.names(diff_test_res[1:1000,])
 #diff_test_res <- row.names(subset(diff_test_res$qval < -.-1))
 cds = setOrderingFilter(cds = cds,ordering_genes = ordering_gene)
 p = plot_ordering_genes(cds)
-
+p
 ggsave(plot = p,filename = './singlecell2/ordering_gene.pdf',height = 10,width = 8)
 ggsave(plot = p,filename = './singlecell2/ordering_gene.png',height = 10,width = 8,dpi = 300)
 
@@ -487,7 +681,7 @@ ggsave(plot = p,filename = './singlecell2/ordering_gene.png',height = 10,width =
 cds <- reduceDimension(cds,method = 'DDRTree')
 cds <- orderCells(cds = cds)
 
-save(cds,file = 'OrderingCell_cds_done.Rdata')
+save(cds,file = './var/new_var/new_singlecell/OrderingCell_cds_done.Rdata')
 
 p <- plot_cell_trajectory(cds,color_by = 'celltype') + theme(text = element_text(size = 18))
 p
@@ -495,9 +689,10 @@ p
 p1 <- plot_cell_trajectory(cds,color_by="Pseudotime")+theme(legend.position="right")
 p1
 
+
 GM_state <- function(x){
   if (length(unique(pData(cds)$State)) > 1) {
-    T0_counts <- table(pData(cds)$State,pData(cds)$celltype)[,'TH1/CD8 Tem']
+    T0_counts <- table(pData(cds)$State,pData(cds)$celltype)[,'eCAFs']
     return(as.numeric(names(T0_counts)[which(T0_counts == max(T0_counts))]))
   } else {return(1)}
 }
@@ -520,9 +715,7 @@ p1<-plot_cell_trajectory(cds = cds,color_by="celltype") +
           legend.title = element_text(size = 14,face = 'bold.italic'),
           legend.text = element_text(size = 13,face = 'bold.italic'))
 p1
-ggsave(filename="./CytoTRACE/monocle.pdf",width=8,height=6,plot=p1)
-
-
+ggsave(filename="./newCytoTRACE/monocle.pdf",width=8,height=6,plot=p1)
 
 ##########CytoTRACE
 #devtools::install_local("./CytoTRACE_0.3.3.tar.gz")
@@ -539,7 +732,8 @@ names(phenot) <- rownames(scRNA@meta.data)
 emb <- scRNA@reductions[['umap']]@cell.embeddings
 ####
 gene <- c('DLST','FBXO31')
-plotCytoTRACE(results,phenotype=phenot,emb = emb,gene = ,outputDir = 'CytoTRACE')
+gene <- c('DLST','EGFL7','DOCK4')
+plotCytoTRACE(results,phenotype=phenot,emb = emb,gene = ,outputDir = 'newCytoTRACE')
 
 ############## CellChat
 #devtools::install_github('sqjin/CellChat')
@@ -561,7 +755,7 @@ sc.cellchat <- setIdent(sc.cellchat,ident.use = 'celltype')
 
 levels(sc.cellchat@idents)
 groupSize <- as.numeric(table(sc.cellchat@idents))
-
+                                  
 ####配受体数据库
 dplyr::glimpse(CellChatDB.human$interaction)
 sc.cellchat@DB <- CellChatDB.human
