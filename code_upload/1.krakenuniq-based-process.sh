@@ -127,7 +127,7 @@ done < 'sample.txt'
 echo completed mapping 36nt reads of Brain
 date
 
-# PN
+# H20
 cd /mnt/data3/yiyonghao/NC_paper_rawdata/h20_all/
 mkdir -p ./star_mapping
 echo ----------------------------------------------------

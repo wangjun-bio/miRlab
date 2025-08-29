@@ -14,13 +14,13 @@ library(DescTools)
 #library(taxtree)
 save.image('../image/2.Multi train.Rdata')
 load('../image/2.Multi train.Rdata')
-setwd('D:/R_project/Microbe cfRNA/MicrobeRNA_R/')
+setwd('/mnt/data3/yiyonghao/MicroRNA')
 
 ### read the raw data ###
-CA_cohort = readRDS('../process_file/1.generate the exp matrix/CA_cohort_0801.rds')
+CA_cohort = readRDS('/mnt/data3/yiyonghao/MicroRNA/process_file/0819/CA_cohort_0820.rds')
 CA_cohort = as.data.frame(CA_cohort)
 rownames(CA_cohort) = CA_cohort[,1];CA_cohort = CA_cohort[,-1]
-RS_cohort = readRDS('../process_file/1.generate the exp matrix/RS_cohort_0801.rds')
+RS_cohort = readRDS('/mnt/data3/yiyonghao/MicroRNA/process_file/0819/RS_cohort_0820.rds')
 RS_cohort = as.data.frame(RS_cohort)
 rownames(RS_cohort) = RS_cohort[,1];RS_cohort = RS_cohort[,-1]
 
@@ -30,11 +30,11 @@ CA_meta = data.frame(row.names = colnames(CA_cohort))
 CA_meta$Group = lapply(rownames(CA_meta),function(x) strsplit(x,'_')[[1]][[1]]) %>% as.character()
 table(CA_meta$Group)
 # CA cohort
-dir.create('../process_file/2.Multi training/CA_cohort_0801',showWarnings = F,recursive = T)
+dir.create('/mnt/data3/yiyonghao/MicroRNA/process_file/0819/CA_masslin2',showWarnings = F,recursive = T)
 res=Maaslin2(
   input_data = CA_cohort, 
   input_metadata = CA_meta, 
-  output = "../process_file/2.Multi training/CA_cohort_0801/Maaslin2",
+  output = "/mnt/data3/yiyonghao/MicroRNA/process_file/0819/CA_masslin2/Maaslin2",
   analysis_method = "LM",
   correction = "BH",
   normalization = "TMM",
@@ -53,20 +53,20 @@ CA_cohort_feature = CA_cohort[unique(feature_CA),] %>% t() %>%
   data.frame() %>% 
   mutate(group = limma::strsplit2(rownames(.),"_")[,1])
 CA_cohort_feature = CA_cohort_feature[,!grepl('NA',colnames(CA_cohort_feature))]
-saveRDS(CA_cohort_feature,'../process_file/2.Multi training/CA_cohort/CA_selected_Masslin2_0801.rds')
-write.csv(CA_cohort_feature,'../process_file/2.Multi training/CA_cohort/CA_selected_Masslin2_0801.csv')
+saveRDS(CA_cohort_feature,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/CA_selected_Masslin2.rds')
+write.csv(CA_cohort_feature,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/CA_selected_Masslin2.csv')
 table(CA_cohort_feature$group)
 
 
 # RS cohort
-dir.create('../process_file/2.Multi training/RS_cohort_0801',showWarnings = F,recursive = T)
+dir.create('/mnt/data3/yiyonghao/MicroRNA/process_file/0819/RS_masslin2',showWarnings = F,recursive = T)
 RS_meta = data.frame(row.names = colnames(RS_cohort))
 RS_meta$Group = lapply(rownames(RS_meta),function(x) strsplit(x,'_')[[1]][[1]]) %>% as.character()
 table(RS_meta$Group)
 res=Maaslin2(
   input_data = RS_cohort, 
   input_metadata = RS_meta, 
-  output = "../process_file/2.Multi training/RS_cohort_0801/Maaslin2",
+  output = "/mnt/data3/yiyonghao/MicroRNA/process_file/0819/RS_masslin2/Maaslin2",
   analysis_method = "LM",
   correction = "BH",
   normalization = "TMM",
@@ -87,8 +87,8 @@ RS_cohort_feature = RS_cohort[unique(feature_RS),] %>% t() %>%
 RS_cohort_feature = RS_cohort_feature[,!grepl('NA',colnames(RS_cohort_feature))]
 RS_cohort_feature = RS_cohort_feature[OrderMixed(rownames(RS_cohort_feature)),]
 
-saveRDS(RS_cohort_feature,'../process_file/2.Multi training/RS_cohort/RS_selected_Masslin2_0801.rds')
-write.csv(RS_cohort_feature,'../process_file/2.Multi training/RS_cohort/RS_selected_Masslin2_0801.csv')
+saveRDS(RS_cohort_feature,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/RS_selected_Masslin2.rds')
+write.csv(RS_cohort_feature,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/RS_selected_Masslin2.csv')
 
 
 ###### deseq2 ######
@@ -153,7 +153,7 @@ deseq2 = function(count,group,loopname,control,normalized) {
   
 }
 
-
+setwd('/mnt/data3/yiyonghao/MicroRNA/process_file/0819')
 CA_meta_deseq = CA_meta
 CA_meta_deseq$Group = ifelse(CA_meta_deseq$Group != 'NOR','PAN','NOR')
 colnames(CA_meta_deseq) = 'group'

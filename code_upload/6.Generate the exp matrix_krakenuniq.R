@@ -6,13 +6,13 @@ library(tibble)
 library(tidyr)
 library(languageserver)
 ## PS: this scipit is final version for generating the expression matrix of krakenuniq 0806
-setwd('D:/R_project/Microbe cfRNA/MicrobeRNA_R')
+setwd('/mnt/data3/yiyonghao/MicroRNA')
 ## read the krakenuniq data
-CA_cohort = read.csv('../process_file/1.generate the exp matrix/PAN_microbeRNA_0731.csv')
-RS_cohort = read.csv('../process_file/1.generate the exp matrix/PN_microbeRNA_0731.csv',check.names = F)
+CA_cohort = read.csv('./process_file/0819/PAN_microbeRNA_0819.csv')
+RS_cohort = read.csv('./process_file/0819/PN_microbeRNA_0819.csv',check.names = F)
 colnames(RS_cohort)[1] = 'X'
-NC_meta = read.csv('../process_file/1.generate the exp matrix/NC_paper_meta.csv')
-PN_meta = read.xlsx('../process_file/1.generate the exp matrix/TB_meta.xlsx')
+NC_meta = read.csv('./process_file/0819/NC_paper_meta.csv')
+PN_meta = read.xlsx('./process_file/0819/TB_meta.xlsx')
 df_all = merge(CA_cohort,RS_cohort,by = 'X',all = T)
 
 ### meta  ###
@@ -24,9 +24,15 @@ NC_meta$num = lapply(NC_meta$ID,function(x) strsplit(x,'_')[[1]][[3]])
 NC_meta$num = gsub(' ','',NC_meta$num)
 NC_meta$num = as.numeric(NC_meta$num)
 # Brain
-Brain_meta = read.csv('../process_file/1.generate the exp matrix/Brain_usedSamples_meta.csv',row.names = 1)
+Brain_meta = read.csv('/mnt/data3/yiyonghao/MicroRNA/process_file/0819/Brain_usedSamples_meta.csv',row.names = 1)
 Brain_meta$num = lapply(Brain_meta$id,function(x) strsplit(x,'_')[[1]][[3]]) %>% as.numeric()
 colnames(Brain_meta) = c('group','sample_type','ID','num')
+# 去除Gli样本
+Brain_meta = Brain_meta[!grepl('GLI',Brain_meta$ID),]
+PAN_meta = bind_rows(NC_meta,Brain_meta)
+PAN_meta$group = gsub('_plasma','',PAN_meta$group)
+table(PAN_meta$group)
+
 
 # PN
 PN_meta = PN_meta %>%
@@ -55,6 +61,15 @@ table(RS_meta$group)
 
 
 # Final output
+tmp = paste0(lapply(colnames(df_all)[grepl('PN',colnames(df_all))], function(x) strsplit(x,'_')[[1]][[1]]) %>% as.character(),
+      '_',
+      lapply(colnames(df_all)[grepl('PN',colnames(df_all))], function(x) strsplit(x,'_')[[1]][[3]]) %>% as.character())
+index = match(tmp,paste0(RS_meta$group,'_',RS_meta$num))
+tmp = RS_meta$sample_label[index]
+colnames(df_all)[grepl('PN',colnames(df_all))] = tmp
+
+
+
 CA_sample = intersect(colnames(df_all),PAN_meta$ID)
 CA_cohort = df_all %>%
   select(X,CA_sample)
@@ -76,20 +91,18 @@ RS_cohort = RS_cohort %>%
 RS_cohort[is.na(RS_cohort)] = 0
 table(RS_meta$group)
 
-saveRDS(CA_cohort,'../process_file/1.generate the exp matrix/CA_cohort_0801.rds')
-saveRDS(RS_cohort,'../process_file/1.generate the exp matrix/RS_cohort_0801.rds')
-saveRDS(CA_meta,'../process_file/1.generate the exp matrix/CA_meta_0801.rds')
-saveRDS(RS_meta,'../process_file/1.generate the exp matrix/RS_meta_0801.rds')
-write.csv(RS_meta,'../process_file/1.generate the exp matrix/RS_meta_0801.csv')
-write.csv(CA_cohort,'../process_file/1.generate the exp matrix/CA_cohort_0801.csv')
-write.csv(RS_cohort,'../process_file/1.generate the exp matrix/RS_cohort_0801.csv')
+saveRDS(CA_cohort,'./process_file/0819/CA_cohort_0820.rds')
+saveRDS(RS_cohort,'./process_file/0819/RS_cohort_0820.rds')
+saveRDS(CA_meta,'./process_file/0819/CA_meta_0820.rds')
+saveRDS(RS_meta,'./process_file/0819/RS_meta_0820.rds')
+write.csv(RS_meta,'./process_file/0819/RS_meta_0820.csv')
+write.csv(CA_cohort,'./process_file/0819/CA_cohort_0820.csv')
+write.csv(RS_cohort,'./process_file/0819/RS_cohort_0820.csv')
 
 
 # summary the exceed genus
-CA_cohort = fread('../process_file/1.generate the exp matrix/CA_cohort_0801.csv')  %>% as.data.frame()
-RS_cohort = fread('../process_file/1.generate the exp matrix/RS_cohort_0801.csv')  %>% as.data.frame()
-rownames(CA_cohort) = CA_cohort[,2];CA_cohort = CA_cohort[,-c(1,2)]
-rownames(RS_cohort) = RS_cohort[,2];RS_cohort = RS_cohort[,-c(1,2)]
+CA_cohort = fread('./process_file/0819/CA_cohort_0820.csv')  %>% as.data.frame()
+RS_cohort = fread('./process_file/0819/RS_cohort_0820.csv')  %>% as.data.frame()
 
 filter_taxa_by_abundance <- function(abund,
                                      abundance_thr = 0.15,
@@ -108,3 +121,6 @@ CA_cohort = filter_taxa_by_abundance(CA_cohort,abundance_thr = 0.15,prop_thr = 0
 RS_cohort = filter_taxa_by_abundance(RS_cohort,abundance_thr = 0.15,prop_thr = 0.05)
 
 exceed = c(rownames(CA_cohort),rownames(RS_cohort)) %>% unique()
+
+
+

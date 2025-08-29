@@ -71,38 +71,40 @@ Merge_df = merge(infos,ALL_filter,by.x = 'Sequence_id',by.y = 'qseqid',all = T)
 
 # trans taxid to genus
 # write.table(Merge_df$TaxID,'/mnt/data3/yiyonghao/NC_paper_rawdata/rRNA_region/taxid.txt',col.names = F,row.names = F,quote = F,sep = '\t')
+# install.packages('taxize')
+library(taxize)
+library(taxizedb)
+library(tidyverse)
+taxid = c(Merge_df$TaxID,Merge_df$blastn_taxid) %>% unique()
 
-taxmap = fread('/mnt/data3/yiyonghao/NC_paper_rawdata/rRNA_region/taxid2genus.tsv',header = T)
+files = list.files('/mnt/data3/yiyonghao/NC_paper_rawdata/upload/krakenuniq_output',pattern = '_reportfile.tsv',full.names = T)
+# db_download_ncbi() 
+db <- db_load_ncbi()
+res <- classification(taxid, db = "ncbi")
+res <- res[!sapply(res, function(x) {
+  length(x) == 1 && is.na(x)
+})]
 
-index = match(Merge_df$TaxID,taxmap$taxid)
-Merge_df$TaxID = taxmap$genus[index]
-index = match(Merge_df$blastn_taxid,taxmap$taxid)
-Merge_df$blastn_taxid = taxmap$genus[index]
+for(i in 1:length(res)){
+    tmp = res[[i]][res[[i]]$rank == 'genus',]
+    tmp = tmp$id
+    res[[i]] = tmp
+  }
+res = unlist(res)
+res = res %>% as.data.frame()
+res = res %>% rownames_to_column()
+colnames(res) = c('taxid','genus_taxid')
+
+index = match(Merge_df$TaxID,res$taxid)
+Merge_df$TaxID = res$genus_taxid[index]
+index = match(Merge_df$blastn_taxid,res$taxid)
+Merge_df$blastn_taxid = res$genus_taxid[index]
+
 Merge_df = na.omit(Merge_df)
-
 Merge_df$check = ifelse(Merge_df$TaxID == Merge_df$blastn_taxid,'yes','no')
-table(Merge_df$check)
 
-write.csv(Merge_df,'/mnt/data3/yiyonghao/MicroRNA/process_file/rRNA_blastn_krakenuniq_compare.csv',row.names = F,quote = F)
 
-Merge_df = fread('/mnt/data3/yiyonghao/MicroRNA/process_file/rRNA_blastn_krakenuniq_compare.csv')
-brain_meta = fread('/mnt/data3/yiyonghao/NC_paper_rawdata/Brain/Brain_usedSamples_meta.csv',header = T) %>% 
-    select(LibraryID,id)
-pn_meta = fread('/mnt/data3/yiyonghao/MicroRNA/process_file/RS_meta_0801.csv')
-pn_meta = pn_meta %>% 
-    select(ID,sample_label)
-colnames(brain_meta) = colnames(pn_meta)
-meta = bind_rows(brain_meta,pn_meta)
+Merge_df_nohomo = Merge_df[Merge_df$TaxID != '9605',]
+table(Merge_df_nohomo$check)
+write.csv(Merge_df_nohomo,'/mnt/data3/yiyonghao/MicroRNA/process_file/blastn_krakenuniq_compare_0827.csv',row.names = F,quote = F)
 
-Merge_df_sub = Merge_df[grepl('GDM',Merge_df$sample),]
-Merge_df_sub$sample = gsub('_cut_R1','',Merge_df_sub$sample)
-index = match(Merge_df_sub$sample,meta$ID)
-Merge_df_sub$sample = meta$sample_label[index]
-Merge_df_sub = na.omit(Merge_df_sub)
-
-blastn_result = bind_rows(Merge_df_sub,Merge_df)
-blastn_result = blastn_result[!duplicated(blastn_result$Sequence_id),]
-blastn_result = blastn_result %>% 
-    select(-TaxID.y)
-colnames(blastn_result)[2] = 'TaxID'
-write.csv(blastn_result,'/mnt/data3/yiyonghao/MicroRNA/process_file/rRNA_blastn_krakenuniq_compare.csv',row.names = F,quote = F)

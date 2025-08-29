@@ -12,32 +12,10 @@ library(here)
 library(httpgd)
 library(languageserver)
 # save the image
-save.image(file = './Lenth_hisgram.RData')
-load('./Lenth_hisgram.RData')
+# save.image(file = './Lenth_hisgram.RData')
+# load('./Lenth_hisgram.RData')
 
 ############## Reading the contamination data ###################
-## ALL_H20 samples
-files = list.files('./h20_all/krakenuniq_output/',pattern = '_reportfile.tsv',full.names = T)
-result = lapply(files,function(x) {
-  tmpname = basename(x)
-  tmpname = gsub('_reportfile.tsv','',tmpname)
-  tmp = read.table(x,header = T,sep = '\t')
-  tmp = tmp[tmp$rank == 'genus',]
-  tmp$taxName = gsub(' ','',tmp$taxName)
-  tmp = tmp[,c(9,2)]
-  colnames(tmp)[2] = tmpname
-  return(tmp)
-})
-result = Reduce(function(x,y) merge(x,y,by = 'taxName',all = T),result) %>% as.data.frame()
-rownames(result) = result[,1];result = result[,-1]
-result = apply(result,2,function(row){
-  row[is.na(row)] = 0
-  return(row)
-})
-colnames(result) = gsub('_cut_R1','',colnames(result))
-h20_all = result
-
-
 ## skin-derived microbes
 library(openxlsx)
 skin_meta = read.xlsx('./mmc2.xlsx',check.names = F)
@@ -56,7 +34,7 @@ skin = as.data.frame(skin)
 skin[,-1] = lapply(skin[,-1],as.numeric)
 skin = skin %>%
   group_by(Taxa) %>%
-  summarise(across(everything(),sum),.groups = 'drop')
+  summarise(across(everything(),~ sum(.x,na.rm = TRUE)),.groups = 'drop')
 skin = skin[-1,]
 skin = as.data.frame(skin)
 rownames(skin) = skin[,1];skin = skin[,-1]
@@ -84,7 +62,7 @@ virus = virus %>%
 virus = virus[!grepl('unclassified',virus$`virus lineage`),]
 virus$genus = gsub(' ','',virus$genus)
 virus = virus$genus[!duplicated(virus$genus)]
-virus <- data.frame(
+virus_df <- data.frame(
   virus = rep(1, length(virus)),
   row.names       = virus
 )
@@ -107,10 +85,8 @@ contaminations = c('Afipia', 'Aquabacterium', 'Asticcacaulis', 'Aurantimonas', '
                   'Chryseobacterium', 'Dyadobacter', 'Flavobacterium', 'Hydrotalea', 'Niastella', 'Olivibacter', 'Pedobacter', 'Wautersiella',
                   'Deinococcus','Homo')
 
-all_contamination = c(contaminations,filtered_skin,virus)
-all_contamination = all_contamination[!duplicated(all_contamination)]
 
-write.table(all_contamination,'Microbe_contamination.txt',col.names = F,row.names = F,quote = F,sep = '\t')
+# write.table(all_contamination,'Microbe_contamination.txt',col.names = F,row.names = F,quote = F,sep = '\t')
 
 
 ######## Reading the reportfile.tsv files ##########
@@ -124,7 +100,7 @@ result = lapply(files,function(x) {
   tmp = read.table(x,header = T,sep = '\t')
   tmp = tmp[tmp$rank == 'genus',]
   tmp$taxName = gsub(' ','',tmp$taxName)
-  tmp = tmp[!(tmp$taxName %in% all_contamination), ]
+  # tmp = tmp[!(tmp$taxName %in% all_contamination), ]
   tmp = tmp[,c(9,2)]
   colnames(tmp)[2] = tmpname
   return(tmp)
@@ -195,7 +171,7 @@ for (i in 1:length(index)) {
   
 }
 PAN = result_filter
-write.csv(Brain_meta_filter,'./Brain/Brain_usedSamples_meta.csv')
+write.csv(Brain_meta_filter,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/Brain_usedSamples_meta.csv')
 
 
 
@@ -207,7 +183,7 @@ result = lapply(files,function(x) {
   tmp = read.table(x,header = T,sep = '\t')
   tmp = tmp[tmp$rank == 'genus',]
   tmp$taxName = gsub(' ','',tmp$taxName)
-  tmp = tmp[!(tmp$taxName %in% all_contamination), ]
+  # tmp = tmp[!(tmp$taxName %in% all_contamination), ]
   tmp = tmp[,c(9,2)]
   colnames(tmp)[2] = tmpname
   return(tmp)
@@ -228,8 +204,37 @@ PN <- setNames(PN, paste0("PN_SZDE_", seq_len(ncol(PN))))
 ## based on decontam packages
 library(decontam)
 library(phyloseq)
-ALL = list(PN,PAN,h20_all)
+## ALL_H20 samples
+files = list.files('./h20_all/krakenuniq_output/',pattern = '_reportfile.tsv',full.names = T)
+result = lapply(files,function(x) {
+  tmpname = basename(x)
+  tmpname = gsub('_reportfile.tsv','',tmpname)
+  tmp = read.table(x,header = T,sep = '\t')
+  tmp = tmp[tmp$rank == 'genus',]
+  tmp$taxName = gsub(' ','',tmp$taxName)
+  # tmp = tmp[!(tmp$taxName %in% all_contamination), ]
+  tmp = tmp[,c(9,2)]
+  colnames(tmp)[2] = tmpname
+  return(tmp)
+})
+result = Reduce(function(x,y) merge(x,y,by = 'taxName',all = T),result) %>% as.data.frame()
+rownames(result) = result[,1];result = result[,-1]
+result = apply(result,2,function(row){
+  row[is.na(row)] = 0
+  return(row)
+})
+colnames(result) = gsub('_cut_R1','',colnames(result))
+h20_all = result
 
+
+
+
+ids = c("GDM20241122-1_CTCTCTAT","GDM20231027-11_GTAAGGAG","GDM20231027-14_GCTCAGGA","GDM20231027-13_CTCTCTAT","GDM20231027-14_TCCTCTAC")
+h20_all_G6 = h20_all[,colnames(h20_all) %in% ids]
+
+
+ALL = list(PN,PAN,h20_all_G6)
+  
 ALL = lapply(ALL,function(x){
   x = as.data.frame(x)
   x = x  %>% rownames_to_column()
@@ -239,7 +244,7 @@ ALL[is.na(ALL)] = 0
 rownames(ALL) = ALL[,1];ALL = ALL[,-1]
 sample_data = data.frame(sample = colnames(ALL))
 sample_data$is.neg = lapply(sample_data$sample,function(x) strsplit(x,'_')[[1]][[1]]) %>% as.character()
-sample_data$is.neg[grepl('GDM',sample_data$is.neg)] = 'WaterControl'
+  sample_data$is.neg[grepl('GDM',sample_data$is.neg)] = 'WaterControl'
 rownames(sample_data) = sample_data[,1];sample_data = sample_data[,-1,drop = F]
 sample_data$is.neg = ifelse(sample_data$is.neg == 'WaterControl',TRUE,FALSE)
 
@@ -294,31 +299,38 @@ negative_contamination_df <- data.frame(
   row.names       = negative_contamination
 )
 
+# read the previous result
+# contamination_list = fread('Microbe_contamination_df_0731.txt')
+# contamination_list = contamination_list[contamination_list$Negative_sample == 1,]$rowname
+
 
 ## saving the contamination matrix
-contamination <- data.frame(
+contamination_df <- data.frame(
   lab_contamination = rep(1, length(contaminations)),
   row.names       = contaminations
 )
-contamination_list = list(negative_contamination_df,filtered_skin_df,virus,contamination)
+contamination_list = list(negative_contamination_df,filtered_skin_df,virus_df,contamination_df)
 for (i in 1:length(contamination_list)) {
+  # print(class(contamination_list[[i]]))
   contamination_list[[i]] = contamination_list[[i]] %>% rownames_to_column()
   
 }
 contamination_list = Reduce(function(x,y) merge(x,y,by = 'rowname',all = T),contamination_list)
 contamination_list[is.na(contamination_list)] = 0
-write.table(contamination_list,'Microbe_contamination_df_0731.txt',col.names = T,row.names = F,quote = F,sep = '\t')
+write.table(contamination_list,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/Microbe_contamination_df_0819.txt',
+  col.names = T,row.names = F,quote = F,sep = '\t')
 
 ## filter microbe derived from negative controls
-PN_filter = PN[!(rownames(PN) %in% negative_contamination),]
-PAN_filter = PAN[!(rownames(PAN) %in% negative_contamination),]
+all_contamination = c(negative_contamination,filtered_skin,virus,contaminations) %>% unique()
+PN_filter = PN[!(rownames(PN) %in% all_contamination),]
+PAN_filter = PAN[!(rownames(PAN) %in% all_contamination),]
 
 
-write.csv(PN_filter,'./PN_microbeRNA_0731.csv')
-write.csv(PAN_filter,'./PAN_microbeRNA_0731.csv')
+write.csv(PN_filter,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/PN_microbeRNA_0819.csv')
+write.csv(PAN_filter,'/mnt/data3/yiyonghao/MicroRNA/process_file/0819/PAN_microbeRNA_0819.csv')
 
 
-
+ length(c(rownames(PN_filter),rownames(PAN_filter)) %>% unique)
 
 
 
