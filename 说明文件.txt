@@ -1,0 +1,34 @@
+df_rpkm_rpm.rds，df_counts.rds，文件太大了，无法放到data/中
+
+ANNOVAR CSV 文件：data/annovar/csv_file/（命名如 GDMxxxx_filtered_DP0_GT11.hg38_multianno.csv） 文件太多，累计太大无法放到data/中
+
+data/krakenuniq/20250707/*_reportfile.tsv文件太多，累计太大了无法放进去
+
+
+这个也太大了，无法放进去
+
+│   ├── DE_miRNA_NOR_not4pnk_PH_not4pnk.csv
+│   │   ├── DE_lncRNA_NOR_not4pnk_PH_not4pnk.csv
+│   │   ├── DE_mRNA_NOR_not4pnk_PH_not4pnk.csv
+│   │   ├── DE_snRNA_NOR_not4pnk_PH_not4pnk.csv
+│   │   ├── DE_snoRNA_NOR_not4pnk_PH_not4pnk.csv
+│   │   ├── DE_tRFs_NOR_not4pnk_PH_not4pnk.csv
+│   │   ├── DE_rsRNA_NOR_not4pnk_PH_not4pnk.csv
+│   │   └── DE_ysRNA_NOR_not4pnk_PH_not4pnk.csv
+
+data/df_rpkm_300W_allRNA_microbe_variant.csvz 这个文件太大了，无法放进去
+
+以下也文件太大
+data/sample_lists/split_barcode_reads_list.txt
+data/ref/annotation/Coding_gene_annotation.gtf
+data/ref/annotation/lncRNA_noMIR_noSNHG_noRNY_annotation.gtf
+data/ref/annotation/snRNA_annotation.gtf
+data/ref/annotation/snoRNA_annotation.gtf
+results/alignments/*mapping2transcript.sam
+
+readscal 输出	data/readscal/*_cal.txt	每个文库的 readscal 统计文件（命名如 GDMxxxx_cal.txt）
+featureCounts 汇总	results/featureCounts/summaries/mRNA_assigned_counts.tsv	由 02_2_featureCounts_summary.sh 生成
+featureCounts 汇总	results/featureCounts/summaries/lncRNA_assigned_counts.tsv	同上
+featureCounts 汇总	results/featureCounts/summaries/snRNA_assigned_counts.tsv	同上
+featureCounts 汇总	results/featureCounts/summaries/snoRNA_assigned_counts.tsv	同上
+以上都无法上传

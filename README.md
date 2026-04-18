@@ -1,24 +1,29 @@
 # miRlab
-# PAH cfRNA multi-omics analysis
+## Data Availability
 
-This repository contains the complete analysis pipeline for the paper "".
+### Raw sequencing data
+The raw FASTQ files have been deposited in the Gene Expression Omnibus (GEO) under accession number **GSEXXXXX** (will be released upon publication).
 
-## Data availability
-Raw sequencing data are available at GEO under accession GSEXXXXX.  
-Processed expression matrices and sample annotations can be found in `data/` (not included due to size; contact author for access).
+### Processed data (expression matrices, mutation calls, microbial abundances)
+Due to GitHub storage limitations, all processed data files (including RPKM matrices, count tables, mutation presence matrices, DE results, and featureCounts summaries) are available upon request and shoule be place in the following directories relative to the project root:
 
-## Dependencies
-- R 4.2+ with packages: DESeq2, ggplot2, pheatmap, survival, maftools, etc.
-- Python 3.9+ with: pandas, numpy, scikit-learn, pydeseq2, lifelines, etc.
-- Conda environment: `conda env create -f environment.yml`
+- `data/df_rpkm_rpm.rds`
+- `data/df_counts.rds`
+- `data/df_rpkm_300W_allRNA_microbe_variant.csv`
+- `data/DE_results/` (all DE CSV files)
+- `data/annovar/csv_file/` (ANNOVAR output CSV files)
+- `data/krakenuniq/20250707/` (KrakenUniq report files)
+- `results/featureCounts/summaries/` (mRNA/lncRNA/snRNA/snoRNA assigned counts)
 
-## Usage
-1. Clone the repo
-2. Prepare input data (see `data/README.md`)
-3. Run analysis in order:
-   - `bash/01_trim_align.sh`
-   - `R/01_QC_visualization.R`
-   - ...
+### Reference genome and annotation files
+The following reference files can be obtained from public sources 
+- **GENCODE v38 GTF** (Coding_gene_annotation.gtf, lncRNA annotation, etc.):  
+- **Bowtie2 index for hg38**:  
+  `bowtie2-build hg38.fa hg38`
+- **KrakenUniq standard database**:  
 
-## License
-MIT
+### Sample lists and RNA name files
+These small text files are already included in the repository under `data/`.
+
+### Running the analysis from scratch
+All analysis steps can be fully reproduced from the raw FASTQ files using the scripts in `scripts/`. Please see `README.md` for the complete workflow.
