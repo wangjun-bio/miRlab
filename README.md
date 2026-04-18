@@ -2,7 +2,7 @@
 ## Data Availability
 
 ### Raw sequencing data
-The raw FASTQ files have been deposited in the Gene Expression Omnibus (GEO) under accession number **GSEXXXXX** (will be released upon publication).
+The raw FASTQ files have been deposited in the GSA-human database under accession number HRA013788 (will be released upon request).
 
 ### Processed data (expression matrices, mutation calls, microbial abundances)
 Due to GitHub storage limitations, all processed data files (including RPKM matrices, count tables, mutation presence matrices, DE results, and featureCounts summaries) are available upon request and shoule be place in the following directories relative to the project root:
